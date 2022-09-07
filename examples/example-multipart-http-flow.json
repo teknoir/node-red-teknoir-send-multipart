@@ -1,0 +1,208 @@
+[
+  {
+    "id": "4aff7c27.97c104",
+    "type": "tab",
+    "label": "Flow 1",
+    "disabled": false,
+    "info": ""
+  },
+  {
+    "id": "3a2d01d9.eb327e",
+    "type": "http-send-multipart",
+    "z": "4aff7c27.97c104",
+    "name": "Post to simulated endpoint",
+    "ret": "obj",
+    "url": "http://127.0.0.1:1880/multipart/endpoint",
+    "user": "TeknoirAI",
+    "password": "SecretOnw",
+    "x": 340,
+    "y": 260,
+    "wires": [
+      [
+        "15d99317e83d0d3a",
+        "bfa3db2a.29e94"
+      ]
+    ]
+  },
+  {
+    "id": "b20eef4a33303b29",
+    "type": "inject",
+    "z": "4aff7c27.97c104",
+    "name": "",
+    "repeat": "",
+    "crontab": "",
+    "once": false,
+    "onceDelay": 0.1,
+    "topic": "",
+    "payload": "true",
+    "payloadType": "bool",
+    "x": 115,
+    "y": 100,
+    "wires": [
+      [
+        "faa574ccbf17278b"
+      ]
+    ],
+    "l": false
+  },
+  {
+    "id": "6e89146e.fc9744",
+    "type": "function",
+    "z": "4aff7c27.97c104",
+    "name": "Transform object detection event to example multipart format",
+    "func": "// Get cached GPS location\nlet location = flow.get('location', msg.payload.location);\nif (location === undefined) {\n    location = {\"lat\":0,\"lng\":0};\n}\n\nfunction toMLObjects(predictions) {\n    var MLObjects = [];\n    if (predictions) {\n        for (let i = 0; i < predictions.length; i++) {\n            var L = (predictions[i].bbox[0] * 800).toFixed();\n            var T = (predictions[i].bbox[1] * 600).toFixed();\n            var R = (predictions[i].bbox[0] * 800 + predictions[i].bbox[2] * 800).toFixed();\n            var B = (predictions[i].bbox[1] * 600 + predictions[i].bbox[3] * 600).toFixed();\n\n            MLObjects.push({\n                \"Label\": predictions[i].className,\n                \"Probability\": predictions[i].score * 100,\n                \"Coordinates\": \"L:\" + L + \", T:\" + T + \", R:\" + R + \", B:\" + B\n            })\n        }\n    }\n    return MLObjects;\n}\n\nfunction toIsoString(date) {\n    var tzo = -date.getTimezoneOffset(),\n        dif = tzo >= 0 ? '+' : '-',\n        pad = function (num) {\n            var norm = Math.floor(Math.abs(num));\n            return (norm < 10 ? '0' : '') + norm;\n        };\n    return date.getFullYear() +\n        '-' + pad(date.getMonth() + 1) +\n        '-' + pad(date.getDate()) +\n        'T' + pad(date.getHours()) +\n        ':' + pad(date.getMinutes()) +\n        ':' + pad(date.getSeconds()) +\n        dif + pad(tzo / 60) +\n        ':' + pad(tzo % 60);\n}\n\nvar now = new Date();\nvar image = msg.payload.image;\nvar buffer = Buffer.from(image.split(\",\")[1], 'base64');\nmsg.payload = {\n    \"imagefile\": {\n        \"options\": {\n            \"filename\": \"imagefile.jpg\",\n            \"contentType\": \"image/jpeg\",\n            \"knownLength\": buffer.length\n        },\n        \"value\": buffer\n    },\n    \"payload\": {\n        \"options\": {\n            \"contentType\": \"application/json\"\n        },\n        \"value\": JSON.stringify({\n            \"DeviceID\": env.get(\"LABEL_DEVICE_ID\") || \"device-id-not-set\",\n            \"RecordID\": msg._msgid,\n            \"DeviceModel\": env.get(\"LABEL_HARDWARE\") || \"device-hardware-not-set\",\n            \"EventDateTime\": toIsoString(now),\n            \"GPSLatitude\": location.lat,\n            \"GPSLongitude\": location.lng,\n            \"Temperature\": 82.0,\n            \"MLModel\": msg.payload.model,\n            \"MLObjects\": toMLObjects(msg.payload.objects)\n        })\n    },\n};\n\nreturn msg;",
+    "outputs": 1,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 380,
+    "y": 160,
+    "wires": [
+      [
+        "3a2d01d9.eb327e",
+        "faa7d755bef3d163"
+      ]
+    ]
+  },
+  {
+    "id": "faa574ccbf17278b",
+    "type": "function",
+    "z": "4aff7c27.97c104",
+    "name": "Object detection payload",
+    "func": "msg.payload = {\n    \"image\": \"data:image/jpeg;base64,/9j/4AAQSkZJRgABAgAAAQABAAD/4QFtRXhpZgAASUkqAAgAAAAFAA8BAgAFAAAASgAAABABAgAGAAAATwAAADEBAgAJAAAAVQAAADIBAgAUAAAAXgAAAGmHBAABAAAAcgAAAAAAAABBWElTAFAxMzc1ADkuODAuMy4xADIwMjc6MDU6MTcgMDA6MzQ6MTcADgCaggUAAQAAACABAACdggUAAQAAACgBAAAniAMAAQAAAP//AAAwiAMAAQAAAAAAAAAqiAgAAQAAAAAAAAAAkAcABAAAADAyMzEDkAIAFAAAADABAAAEkAIAFAAAAEQBAACRkgIABAAAADE4MwCSkgIABAAAADE4MwAAoAcABAAAADAxMDABoAMAAQAAAAEAAAACpAMAAQAAAAAAAAAxpAIADQAAAFgBAAAAAAAA8nsAAEBCDwD/////CgAAADIwMjc6MDU6MTcgMDA6MzQ6MTcAMjAyNzowNToxNyAwMDozNDoxNwBBQ0NDOEVEOTNDQzAA//4ADwoBa+pAiRJr6kCJEgH//gAPCgAHlQlQL6zMjtk8wP/+ARYAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD/2wBDAAoHBwgHBgoICAgLCgoLDhgQDg0NDh0VFhEYI...\",\n    \"inference_time\": 0.589,\n    \"model\": \"0.0.8-2-objects\",\n    \"objects\": [\n        {\n            \"bbox\": [\n                0.5512499809265137,\n                0.3700000047683716,\n                0.2537499964237213,\n                0.37833333015441895\n            ],\n            \"className\": \"CARDBOARD\",\n            \"objId\": 1,\n            \"score\": 0.2850748598575592\n        }\n    ],\n    \"timestamp\": \"2022-09-07T06:26:13.754Z\"\n};\nreturn msg;",
+    "outputs": 1,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 270,
+    "y": 100,
+    "wires": [
+      [
+        "6e89146e.fc9744"
+      ]
+    ]
+  },
+  {
+    "id": "aef74e1d96cb1158",
+    "type": "http in",
+    "z": "4aff7c27.97c104",
+    "name": "Simulated endpoint",
+    "url": "/multipart/endpoint",
+    "method": "post",
+    "upload": false,
+    "swaggerDoc": "",
+    "x": 170,
+    "y": 420,
+    "wires": [
+      [
+        "0c5457da9674f896"
+      ]
+    ]
+  },
+  {
+    "id": "faa7d755bef3d163",
+    "type": "debug",
+    "z": "4aff7c27.97c104",
+    "name": "Request",
+    "active": true,
+    "tosidebar": true,
+    "console": false,
+    "tostatus": false,
+    "complete": "payload",
+    "targetType": "msg",
+    "statusVal": "",
+    "statusType": "auto",
+    "x": 800,
+    "y": 220,
+    "wires": []
+  },
+  {
+    "id": "579039f37f976374",
+    "type": "http response",
+    "z": "4aff7c27.97c104",
+    "name": "",
+    "statusCode": "",
+    "headers": {
+      "content-type": "application/json",
+      "cache-control": "private",
+      "content-length": "230"
+    },
+    "x": 510,
+    "y": 420,
+    "wires": []
+  },
+  {
+    "id": "0c5457da9674f896",
+    "type": "template",
+    "z": "4aff7c27.97c104",
+    "name": "",
+    "field": "payload",
+    "fieldType": "msg",
+    "format": "json",
+    "syntax": "mustache",
+    "template": "{\n    \"topic\": \"darknet/events\",\n    \"payload\": {\n        \"urlimage\": \"https://media.sustayn.com/Media/TeknoirImage?Id=HD-VM-00077_20220907_013253\",\n        \"urldata\": \"https://devices.sustayn.com/Devices/TeknoirV10/Event?AccountID=23&DeviceID=HD-VM-00077&Id=HD-VM-00077_20220907_013253\"\n    },\n    \"qos\": 1,\n    \"retain\": false,\n    \"_msgid\": \"32300157.6acbee\",\n    \"statusCode\": 200,\n    \"headers\": {\n        \"cache-control\": \"private\",\n        \"content-type\": \"application/json; charset=utf-8\",\n        \"server\": \"Microsoft-IIS/8.5\",\n        \"x-aspnetmvc-version\": \"5.2\",\n        \"x-aspnet-version\": \"4.0.30319\",\n        \"x-powered-by\": \"ASP.NET\",\n        \"date\": \"Wed, 07 Sep 2022 06:32:55 GMT\",\n        \"connection\": \"close\",\n        \"content-length\": \"230\"\n    },\n    \"responseUrl\": \"https://TeknoirAI:TNEdge-v1.0@devices.sustayn.com/Devices/TeknoirV10/Event\"\n}",
+    "output": "json",
+    "x": 360,
+    "y": 420,
+    "wires": [
+      [
+        "579039f37f976374"
+      ]
+    ]
+  },
+  {
+    "id": "15d99317e83d0d3a",
+    "type": "debug",
+    "z": "4aff7c27.97c104",
+    "name": "Response",
+    "active": true,
+    "tosidebar": true,
+    "console": false,
+    "tostatus": false,
+    "complete": "payload",
+    "targetType": "msg",
+    "statusVal": "",
+    "statusType": "auto",
+    "x": 800,
+    "y": 260,
+    "wires": []
+  },
+  {
+    "id": "bfa3db2a.29e94",
+    "type": "function",
+    "z": "4aff7c27.97c104",
+    "name": "Check for errors",
+    "func": "if (msg.statusCode != 200){\n    msg.error = \"Did not get 200 back!\"\n    return msg;\n}",
+    "outputs": 1,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 620,
+    "y": 320,
+    "wires": [
+      [
+        "6d8e1a1ec14edd20"
+      ]
+    ]
+  },
+  {
+    "id": "6d8e1a1ec14edd20",
+    "type": "debug",
+    "z": "4aff7c27.97c104",
+    "name": "Errors",
+    "active": true,
+    "tosidebar": true,
+    "console": false,
+    "tostatus": false,
+    "complete": "payload",
+    "targetType": "msg",
+    "statusVal": "",
+    "statusType": "auto",
+    "x": 790,
+    "y": 320,
+    "wires": []
+  }
+]

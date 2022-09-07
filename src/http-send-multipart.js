@@ -120,12 +120,16 @@ module.exports = function (RED) {
                                     msg.payload = JSON.parse(msg.payload);
                                 } // obj
                                 catch (e) {
-                                    node.warn(RED._("httpin.errors.json-error"));
+                                    node.warn(RED._("httpresponse.errors.json-error"));
                                 }
                             }
                         }
-                        node.status({});
                         nodeSend(msg);
+                        node.status({
+                            fill: "green",
+                            shape: "dot",
+                            text: "Sent"
+                        });
                         nodeDone();
                     }
                 });
